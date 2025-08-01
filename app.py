@@ -30,27 +30,31 @@ if mode == "📝 Input Manual":
     input_data = {}
 
     # Numerik
-    st.markdown("### 📌 Fitur Numerik")
-    for col in numerical_features:
-        input_data[col] = st.number_input(f"{col}", step=1.0)
+    st.markdown("### 📌 Data Numerik")
+    cols_num = st.columns(3)
+    for i, col in enumerate(numerical_features):
+        with cols_num[i % 3]:
+            input_data[col] = st.number_input(f"{col}", step=1, format="%d")
 
     # Kategorikal
-    st.markdown("### 📌 Fitur Kategorikal")
-    for col in categorical_features:
-        if col.lower() == 'pekerjaan':
-            options = ["PEDAGANG", "KARYAWAN SWASTA", "TIDAK ADA", "ASISTEN RUMAH TANGGA",
-                       "BERTANI", "BURUH", "PEGAWAI", "PETERNAK", "WIRASWASTA"]
-        elif col.lower() == 'status perkawinan':
-            options = ["BELUM MENIKAH", "CERAI HIDUP", "CERAI MATI", "MENIKAH"]
-        elif col.lower() == 'pendidikan':
-            options = ["SD", "SMP", "SMA", "S1"]
-        elif col.lower() == 'status rumah':
-            options = ["BEBAS SEWA", "KONTRAK", "MENUMPANG", "MILIK ORANG TUA", "MILIK SENDIRI"]
-        elif col.lower() == 'l/p':
-            options = ["L", "P"]
-        else:
-            options = ["Ya", "Tidak"]
-        input_data[col] = st.selectbox(f"{col}", options)
+    st.markdown("### 📌 Data Kategorikal")
+    cols_cat = st.columns(3)
+    for i, col in enumerate(categorical_features):
+        with cols_cat[i % 3]:
+            if col.lower() == 'pekerjaan':
+                options = ["PEDAGANG", "KARYAWAN SWASTA", "TIDAK ADA", "ASISTEN RUMAH TANGGA",
+                        "BERTANI", "BURUH", "PEGAWAI", "PETERNAK", "WIRASWASTA"]
+            elif col.lower() == 'status perkawinan':
+                options = ["BELUM MENIKAH", "CERAI HIDUP", "CERAI MATI", "MENIKAH"]
+            elif col.lower() == 'pendidikan':
+                options = ["SD", "SMP", "SMA", "S1"]
+            elif col.lower() == 'status rumah':
+                options = ["BEBAS SEWA", "KONTRAK", "MENUMPANG", "MILIK ORANG TUA", "MILIK SENDIRI"]
+            elif col.lower() == 'l/p':
+                options = ["L", "P"]
+            else:
+                options = ["Ya", "Tidak"]
+            input_data[col] = st.selectbox(f"{col}", options)
 
     if st.button("🔮 Prediksi"):
         input_df = pd.DataFrame([input_data])
