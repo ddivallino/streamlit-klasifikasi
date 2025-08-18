@@ -13,8 +13,33 @@ numerical_features = joblib.load("numerical_features.pkl")
 categorical_features = joblib.load("categorical_features.pkl")
 ohe = joblib.load("ohe.pkl")
 
-st.set_page_config(layout="wide")
-st.title("📊 Prediksi Kelayakan Penerima Bantuan PKH")
+st.set_page_config(page_title="Aplikasi PKH", layout="wide")
+# Bikin dua kolom: satu untuk logo, satu untuk title
+col1, col2 = st.columns([1, 3])  # Sesuaikan rasio kolom sesuai kebutuhan
+with col1:
+    st.image("logo.png", width=800)  # Ubah ukuran sesuai kebutuhan
+with col2:
+    st.title("Aplikasi Prediksi Kelayakan Penerima Bantuan Sosial Program Keluarga Harapan (PKH) Kelurahan Cipamokolan")
+st.markdown("""
+### 📖 Tentang Program Keluarga Harapan (PKH)
+
+Program Keluarga Harapan (PKH) merupakan salah satu bentuk bantuan tunai bersyarat yang dikenal didunia sebagai
+strategi efektif dalam menanggulangi kemiskinan kronis. Pelaksanaan PKH didasari oleh ketentuan hukum, salah satunya tercantum dalam Peraturan Menteri Sosial Nomor 1 Tahun
+2018 tentang Program Keluarga Harapan.
+
+Tujuan utama PKH adalah meningkatkan kualitas hidup keluarga miskin melalui kemudahan akses terhadap layanan pendidikan,
+layanan kesehatan, serta pelayanan kesejahteraan sosial.
+            
+Kriteria penerima PKH meliputi:
+- Ibu hamil atau menyusui
+- Balita
+- Anak prasekolah
+- Anak sekolah
+- Lanjut usia
+- Penyandang disabilitas
+
+Aplikasi ini membantu memprediksi apakah seseorang **layak atau tidak layak** menerima bantuan PKH berdasarkan data-data tersebut.
+""")
 
 # =====================
 # 🔘 Mode Input
@@ -122,6 +147,20 @@ elif mode == "📁 Upload Excel":
                 st.success("✅ Prediksi selesai!")
                 st.dataframe(df_input)
 
+                # 🔍 Evaluasi Akurasi jika kolom label aktual tersedia
+                if 'Status Kelayakan' in df_input.columns:
+                    actual = df_input['Status Kelayakan'].str.upper().str.strip()
+                    predicted = df_input['Hasil Prediksi'].str.upper().str.strip()
+
+                    correct = (actual == predicted).sum()
+                    total = len(df_input)
+                    acc = correct / total * 100
+
+                    st.markdown("### ✅ Evaluasi Akurasi")
+                    st.info(f"Akurasi Prediksi: **{acc:.2f}%** ({correct} dari {total} prediksi benar)")
+                else:
+                    st.warning("⚠️ Kolom 'Status Kelayakan' tidak ditemukan, tidak bisa menghitung akurasi.")
+
                 # ✅ Convert to Excel in memory
                 output = BytesIO()
                 with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -165,6 +204,43 @@ elif mode == "📁 Upload Excel":
                       )
                 fig.update_traces(textposition='inside', textinfo='percent+label')
                 st.plotly_chart(fig, use_container_width=True)
+
+                if 'Penghasilan' in df_input.columns:
+                    fig = px.box(
+                        df_input,
+                        x='Hasil Prediksi',
+                        y='Penghasilan',
+                        color='Hasil Prediksi',
+                        title='Distribusi Penghasilan Berdasarkan Hasil Prediksi',
+                        color_discrete_sequence=px.colors.qualitative.Set2
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+
+                    if 'Pendidikan' in df_input.columns:
+                        pend_counts = df_input.groupby(['Pendidikan', 'Hasil Prediksi']).size().reset_index(name='Jumlah')
+                        fig = px.bar(
+                        pend_counts,
+                        x='Pendidikan',
+                        y='Jumlah',
+                        color='Hasil Prediksi',
+                        barmode='group',
+                        title='Pendidikan vs Hasil Prediksi',
+                        color_discrete_sequence=px.colors.qualitative.Pastel
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
+
+                    if 'Status Rumah' in df_input.columns:
+                        rumah_counts = df_input.groupby(['Status Rumah', 'Hasil Prediksi']).size().reset_index(name='Jumlah')
+                        fig = px.bar(
+                        rumah_counts,
+                        x='Status Rumah',
+                        y='Jumlah',
+                        color='Hasil Prediksi',
+                        barmode='group',
+                        title='Status Rumah vs Hasil Prediksi',
+                        color_discrete_sequence=px.colors.qualitative.Vivid
+                    )
+                    st.plotly_chart(fig, use_container_width=True)
 
         except Exception as e:
             st.error(f"❌ Terjadi kesalahan saat memproses file: {e}")
