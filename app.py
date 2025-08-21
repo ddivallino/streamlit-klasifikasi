@@ -3,7 +3,68 @@ import pandas as pd
 import numpy as np
 import joblib
 import plotly.express as px
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils.dataframe import dataframe_to_rows
 from io import BytesIO
+from datetime import datetime
+
+def create_formatted_excel(df_input, waktu_prediksi, judul_sheet="Hasil Prediksi"):
+    waktu_cetak = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
+    judul = "HASIL PREDIKSI KELAYAKAN PENERIMA BANTUAN PROGRAM KELUARGA HARAPAN (PKH) KELURAHAN CIPAMOKOLAN"
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = judul_sheet
+
+    # Judul utama
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(df_input.columns))
+    ws["A1"] = judul
+    ws["A1"].font = Font(size=14, bold=True)
+    ws["A1"].alignment = Alignment(horizontal="center")
+
+    # Waktu prediksi
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=len(df_input.columns))
+    ws["A2"] = f"Waktu Prediksi: {waktu_prediksi}"
+    ws["A2"].font = Font(italic=True, size=10)
+
+    # Waktu cetak
+    ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=len(df_input.columns))
+    ws["A3"] = f"Waktu Cetak: {waktu_cetak}"
+    ws["A3"].font = Font(italic=True, size=10)
+
+    # ============ Header Tabel ============
+    header_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")  # Warna kuning
+    header_font = Font(bold=True)
+    header_row = 4
+
+    for col_num, column_title in enumerate(df_input.columns, 1):
+        cell = ws.cell(row=header_row, column=col_num, value=column_title)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center")
+
+    # ============ Data Tabel ============
+    for row_num, row_data in enumerate(df_input.values, start=header_row + 1):
+        for col_num, cell_value in enumerate(row_data, 1):
+            ws.cell(row=row_num, column=col_num, value=cell_value)
+
+    # ============ Tambahkan Border ============
+    thin_border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    for row in ws.iter_rows(min_row=header_row, max_row=ws.max_row,
+                            min_col=1, max_col=len(df_input.columns)):
+        for cell in row:
+            cell.border = thin_border
+
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output
 
 # === Load Model dan Preprocessing ===
 model = joblib.load("model.pkl")
@@ -143,6 +204,7 @@ elif mode == "📁 Upload Excel":
                 df_input['Hasil Prediksi'] = ["LAYAK" if p == 0 else "TIDAK LAYAK" for p in pred]
                 df_input['Prob_LAYAK (%)'] = np.round(proba_all[:, 0] * 100, 2)
                 df_input['Prob_TIDAK_LAYAK (%)'] = np.round(proba_all[:, 1] * 100, 2)
+                waktu_prediksi = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
 
                 st.success("✅ Prediksi selesai!")
                 st.dataframe(df_input)
@@ -161,11 +223,8 @@ elif mode == "📁 Upload Excel":
                 else:
                     st.warning("⚠️ Kolom 'Status Kelayakan' tidak ditemukan, tidak bisa menghitung akurasi.")
 
-                # ✅ Convert to Excel in memory
-                output = BytesIO()
-                with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                    df_input.to_excel(writer, index=False)
-                output.seek(0)
+                # ✅ Convert to formatted Excel in memory
+                output = create_formatted_excel(df_input, waktu_prediksi)
 
                 # ✅ Download Button
                 st.download_button(
@@ -174,6 +233,11 @@ elif mode == "📁 Upload Excel":
                     file_name="hasil_prediksi_dengan_probabilitas.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
+
+                warna_kategori = {
+                     "LAYAK": "green",
+                     "TIDAK LAYAK": "orange"
+                }
 
                 # 🔢 Visualisasi hasil prediksi dengan Plotly
 
@@ -186,7 +250,7 @@ elif mode == "📁 Upload Excel":
                      color='Kategori',
                      text='Jumlah',
                      title='Distribusi Hasil Prediksi',
-                     color_discrete_sequence=["#1f77b4", "#ff7f0e"]
+                     color_discrete_map=warna_kategori
                      )
                 fig.update_traces(textposition='outside')
                 fig.update_layout(yaxis_title='Jumlah Data', xaxis_title='Kategori Prediksi')
@@ -200,7 +264,8 @@ elif mode == "📁 Upload Excel":
                       names='Kategori',
                       values='Jumlah',
                       title='Distribusi Prediksi Kelayakan',
-                      color_discrete_sequence=px.colors.qualitative.Set3,
+                      color='Kategori',
+                      color_discrete_map=warna_kategori
                       )
                 fig.update_traces(textposition='inside', textinfo='percent+label')
                 st.plotly_chart(fig, use_container_width=True)
@@ -212,7 +277,7 @@ elif mode == "📁 Upload Excel":
                         y='Penghasilan',
                         color='Hasil Prediksi',
                         title='Distribusi Penghasilan Berdasarkan Hasil Prediksi',
-                        color_discrete_sequence=px.colors.qualitative.Set2
+                        color_discrete_map=warna_kategori
                     )
                     st.plotly_chart(fig, use_container_width=True)
 
@@ -225,7 +290,7 @@ elif mode == "📁 Upload Excel":
                         color='Hasil Prediksi',
                         barmode='group',
                         title='Pendidikan vs Hasil Prediksi',
-                        color_discrete_sequence=px.colors.qualitative.Pastel
+                        color_discrete_map=warna_kategori
                     )
                     st.plotly_chart(fig, use_container_width=True)
 
@@ -238,7 +303,7 @@ elif mode == "📁 Upload Excel":
                         color='Hasil Prediksi',
                         barmode='group',
                         title='Status Rumah vs Hasil Prediksi',
-                        color_discrete_sequence=px.colors.qualitative.Vivid
+                        color_discrete_map=warna_kategori
                     )
                     st.plotly_chart(fig, use_container_width=True)
 
